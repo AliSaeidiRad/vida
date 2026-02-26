@@ -4,5 +4,6 @@ temp/
 output/
 old/
 images/
+.venv/
 
 *.pyc
