@@ -352,6 +352,7 @@ def main(
     datasets: Dict[str, Dict[str, Any]],
     use_amp: bool,
     label2id_json: str,
+    loss_args: str,
     freeze_heads: List[str] = [],
     checkpoint: Optional[str] = None,
     preprocess: Literal["iss", "normal"] = "iss",
@@ -379,37 +380,23 @@ def main(
         smoothing=0.1,
     )
 
-    gamma = {
-        "shape": 1.5,
-        "margin": 1.5,
-        "birads": 1.5,
-        "pathology": 0.0,
-        "malignancy": 0.0,
-    }
-    smoothing = {
-        "shape": 0.1,
-        "margin": 0.1,
-        "birads": 0.2,
-        "pathology": 0.1,
-        "malignancy": 0.1,
-    }
-    task_weights = {
-        "pathology": 1.0,
-        "birads": 2.0,
-        "margin": 1.5,
-        "shape": 1.2,
-        "malignancy": 1.0,
-    }
+    lossargs = json.load(open(loss_args, "r"))
 
     config = MultiHeadCNNConfig(
         head_dims=[[1024, 512, 256, 128]] * n_heads,
         head_names={k: len(label2id[k]) for k in label2id},
         class_weights=class_weights,
-        gamma=gamma,
-        smoothing=smoothing,
+        gamma=lossargs["gamma"],
+        smoothing=lossargs["smoothing"],
         task_weights={
-            **{k: v for k, v in task_weights.items() if k not in freeze_heads},
-            **{k: 0.0 for k, v in task_weights.items() if k in freeze_heads},
+            **{
+                k: v
+                for k, v in lossargs["task_weights"].items()
+                if k not in freeze_heads
+            },
+            **{
+                k: 0.0 for k, v in lossargs["task_weights"].items() if k in freeze_heads
+            },
         },
     )
     model = MultiHeadCNNForClassification(config=config)
@@ -664,6 +651,8 @@ if __name__ == "__main__":
     parser.add_argument("--freeze-backbone", action="store_true")
     parser.add_argument("--freeze-attention", action="store_true")
 
+    parser.add_argument("--loss", type=str, default="config/loss.json")
+
     args = parser.parse_args()
 
     start_dt = datetime.now()
@@ -687,6 +676,7 @@ if __name__ == "__main__":
             lrf=args.lrf,
             freeze_backbone=args.freeze_backbone,
             freeze_attention=args.freeze_attention,
+            loss_args=args.loss,
         )
     end_dt = datetime.now()
 

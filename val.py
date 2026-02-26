@@ -287,7 +287,7 @@ def to_csv(filename: str = "summary-test.json", outputname: str = "results.csv")
                     "+".join(list(config.get("FREEZE_HEADS", [])))
                 )
                 df["Checkpoint"].append(
-                    False if config.get("CHECKPOINT", "None") == "None" else True
+                    False if config.get("CHECKPOINT", None) is not None else True
                 )
             else:
                 df["Head"].append(head)
