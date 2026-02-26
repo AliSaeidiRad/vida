@@ -1,0 +1,12 @@
+{
+  "margin": {
+    "CIRCUMSCRIBED": "CIRCUMSCRIBED",
+    "ObOBSCUREDscured": "OBSCURED",
+    "INDISTINCT": "ILL_DEFINED",
+    "MICRO-LOBULATED": "MICROLOBULATED",
+    "SPICULATED": "SPICULATED"
+  },
+  "shape": { "OVAL": "OVAL", "ROUND": "ROUND", "IRREGULAR": "IRREGULAR" },
+  "birads": { "0": "0", "2": "2", "4": "4", "4B": "4", "4C": "4", "5": "5" },
+  "pathology": { "Benign": "BENIGN", "Malignant": "MALIGNANT" }
+}

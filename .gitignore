@@ -1,0 +1,8 @@
+__pycache__/
+
+temp/
+output/
+old/
+
+*.pyc
+*.csv

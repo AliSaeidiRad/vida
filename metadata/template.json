@@ -1,0 +1,91 @@
+{
+  "dataset": {
+    "name": "",
+    "version": "",
+    "identifier": "",
+    "description": "",
+    "publication_date": "",
+    "authors": "",
+    "contact": {
+      "email": "",
+      "institution": ""
+    },
+    "license": "",
+    "keywords": [""]
+  },
+  "data_description": {
+    "size": {
+      "total_images": 0,
+      "total_patients": 0,
+      "total_cases": 0
+    },
+    "image_format": "",
+    "image_resolution": {
+      "average_width": 0.0,
+      "average_height": 0.0,
+      "bit_depth": 0.0
+    },
+    "views": [""],
+    "annotation_types": [""],
+    "description": ""
+  },
+  "data_collection": {
+    "source": "",
+    "equipment": "",
+    "collection_period": "",
+    "annotation_process": ""
+  },
+  "data_structure": {
+    "directory_structure": {
+      "root": "",
+      "images": "",
+      "annotations": "",
+      "metadata": ""
+    },
+    "annotation_file_format": "",
+    "annotation_fields": [{ "name": "", "type": "", "description": "" }],
+
+    "finding_categories": [{ "name": "", "count": 0 }],
+
+    "breast_birads": [
+      { "name": "BI-RADS 5", "count": 0 },
+      { "name": "BI-RADS 4", "count": 0 },
+      { "name": "BI-RADS 3", "count": 0 },
+      { "name": "BI-RADS 2", "count": 0 },
+      { "name": "BI-RADS 1", "count": 0 }
+    ],
+
+    "breast_density": [
+      { "name": "DENSITY D", "count": 0 },
+      { "name": "DENSITY C", "count": 0 },
+      { "name": "DENSITY B", "count": 0 },
+      { "name": "DENSITY A", "count": 0 }
+    ]
+  },
+  "quality_and_validation": {
+    "inter_annotator_agreement": {
+      "description": ""
+    },
+    "data_imbalance": "B",
+    "preprocessing": "",
+    "limitations": ""
+  },
+  "privacy_and_ethics": {
+    "anonymization": "",
+    "consent": "",
+    "access_control": ""
+  },
+  "access_and_usage": {
+    "access_method": "",
+    "recommended_tools": [""],
+    "updates": "",
+    "references": [
+      {
+        "title": "",
+        "journal": "",
+        "year": 0,
+        "authors": ""
+      }
+    ]
+  }
+}

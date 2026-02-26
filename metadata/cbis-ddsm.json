@@ -1,0 +1,159 @@
+{
+  "dataset": {
+    "name": "CBIS-DDSM (Curated Breast Imaging Subset of DDSM)",
+    "version": "2016 release (TCIA)",
+    "identifier": "DOI:10.7937/K9/TCIA.2016.7O02S9CY",
+    "description": "CBIS-DDSM is a curated and standardized subset of the Digital Database for Screening Mammography (DDSM). It provides decompressed mammography images converted to DICOM, updated ROI segmentation for mass lesions, bounding boxes, pathology labels, BI-RADS assessments, and predefined training/test splits to support reproducible CADx and CADe research.",
+    "publication_date": "2016-12-19",
+    "authors": "Rebecca Sawyer Lee; Francisco Gimenez; Assaf Hoogi; Kanae Kawai Miyake; Mia Gorovoy; Daniel L. Rubin",
+    "contact": {
+      "email": "[dlrubin@stanford.edu](mailto:dlrubin@stanford.edu)",
+      "institution": "Stanford University School of Medicine, Department of Radiology and Biomedical Data Science"
+    },
+    "license": "Creative Commons Attribution 3.0 Unported (CC BY 3.0) via TCIA Data Usage Policy",
+    "keywords": [
+      "mammography",
+      "breast cancer",
+      "CAD",
+      "CADe",
+      "CADx",
+      "BI-RADS",
+      "medical imaging",
+      "segmentation"
+    ]
+  },
+  "data_description": {
+    "size": {
+      "total_images": 1319,
+      "total_patients": 0,
+      "total_cases": 0
+    },
+    "image_format": "JPEG (.jpg)",
+    "image_resolution": "~12MP",
+    "views": ["CC (Craniocaudal)", "MLO (Mediolateral Oblique)"],
+    "annotation_types": [
+      "ROI mask (binary)",
+      "Mass segmentation",
+      "Calcification segmentation",
+      "Pathology label",
+      "BI-RADS assessment",
+      "Breast density"
+    ],
+    "description": "The dataset contains full-field mammograms and abnormality-level crops. It includes 753 calcification cases and 891 mass cases, split into standardized training and test sets (80/20). Mass lesions include refined segmentation masks generated using a modified Chan-Vese level-set algorithm."
+  },
+  "data_collection": {
+    "source": "Curated subset of the Digital Database for Screening Mammography (DDSM), originally collected from Massachusetts General Hospital, Wake Forest University School of Medicine, Sacred Heart Hospital, and Washington University of St Louis School of Medicine",
+    "equipment": "Scanned film mammograms digitized using multiple scanners; converted to standardized optical density and DICOM format",
+    "collection_period": "Original DDSM released 1997; CBIS-DDSM curated and published 2016",
+    "annotation_process": "Original DDSM ROIs were reviewed; 339 questionable mass images removed. Mass lesions were re-segmented using a modified Chan-Vese local level-set algorithm initialized from original contours. A trained mammographer reviewed annotations and provided hand-drawn ROIs for validation (118 images)."
+  },
+  "data_structure": {
+    "directory_structure": {
+      "root": "CBIS-DDSM: Breast Cancer Image Dataset/",
+      "images": {
+        "dir": "jpeg",
+        "description": "Full mammograms (CC and MLO views) and cropped abnormality images"
+      },
+      "metadata": {
+        "dir": "csv",
+        "description": "CSV files (mass_case_description_*.csv, calc_case_description_*.csv)"
+      }
+    },
+    "annotation_fields": [
+      {
+        "name": "patient_id",
+        "type": "string",
+        "description": "Unique participant identifier (first 7 characters of image file)"
+      },
+      {
+        "name": "breast_density",
+        "type": "integer (1-4)",
+        "description": "BI-RADS breast density category"
+      },
+      {
+        "name": "left or right breast",
+        "type": "string",
+        "description": "Left or Right breast"
+      },
+      {
+        "name": "image view",
+        "type": "string",
+        "description": "CC or MLO view"
+      },
+      {
+        "name": "abnormality id",
+        "type": "integer",
+        "description": "index of lesion in sigle image"
+      },
+      {
+        "name": "abnormality type",
+        "type": "string",
+        "description": "Mass or Calcification"
+      },
+      {
+        "name": "mass shape",
+        "type": "string",
+        "description": "Shape descriptor (if mass)"
+      },
+      {
+        "name": "assessment",
+        "type": "integer (1-5)",
+        "description": "Overall BI-RADS assessment category"
+      },
+      {
+        "name": "mass margins",
+        "type": "string",
+        "description": "Margin descriptor (if mass)"
+      },
+      {
+        "name": "pathology",
+        "type": "string",
+        "description": "Benign, Benign without callback, or Malignant"
+      },
+      {
+        "name": "subtlety",
+        "type": "integer (1-5)",
+        "description": "Radiologist rating of lesion subtlety"
+      }
+    ],
+    "finding_categories": [
+      { "name": "Mass", "count": 891 },
+      { "name": "Calcification", "count": 753 }
+    ]
+  },
+  "quality_and_validation": {
+    "inter_annotator_agreement": {
+      "description": "Mass segmentation validated on 118 images. Mean Dice coefficient between computer-generated and hand-drawn ROIs: 0.792±0.108; original DDSM vs hand-drawn: 0.398±0.195. Wilcoxon signed-rank test p=5.54e-19, indicating significant improvement."
+    },
+    "data_imbalance": "Benign and malignant cases are moderately balanced within mass and calcification subsets; official train/test split preserves BI-RADS stratification.",
+    "preprocessing": "Lossless LJPEG decompression; optical density normalization; clipping to [0.05, 3.0]; conversion to 16-bit TIFF and DICOM; ROI mask generation; abnormality cropping.",
+    "limitations": "Scanned film mammograms rather than full-field digital mammography; heterogeneous scanner sources; incomplete density/BIRADS counts in summary; some cases contain multiple patient IDs per participant."
+  },
+  "privacy_and_ethics": {
+    "anonymization": "All images de-identified and reviewed; cases with residual PHI removed by TCIA.",
+    "consent": "Original DDSM obtained necessary patient consents under DoD Breast Cancer Research Program.",
+    "access_control": "Public access via The Cancer Imaging Archive (TCIA) under data usage agreement."
+  },
+  "access_and_usage": {
+    "access_method": "Download via TCIA (The Cancer Imaging Archive) using DOI link and JNLP files.",
+    "recommended_tools": ["pandas", "opencv-python", "numpy"],
+    "updates": "Curated release published 2016; no major subsequent revisions documented.",
+    "references": [
+      {
+        "title": "Curated Breast Imaging Subset of DDSM",
+        "journal": "The Cancer Imaging Archive",
+        "year": 2016,
+        "authors": "Lee RS; Gimenez F; Hoogi A; Rubin DL"
+      },
+      {
+        "title": "A curated mammography data set for use in computer-aided detection and diagnosis research",
+        "journal": "Scientific Data",
+        "year": 2017,
+        "authors": "Lee RS; Gimenez F; Hoogi A; Miyake KK; Gorovoy M; Rubin DL"
+      }
+    ]
+  },
+  "python-funcs": {
+    "produce-clean-dataframe": ""
+  }
+}

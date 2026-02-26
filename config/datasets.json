@@ -1,0 +1,27 @@
+{
+  "cbis": {
+    "csv": "/home/adminteam/Documents/data/CBIS-DDSM: Breast Cancer Image Dataset/csv",
+    "jpeg": "/home/adminteam/Documents/data/CBIS-DDSM: Breast Cancer Image Dataset/jpeg",
+    "map": "config/cbis.json"
+  },
+  "cdd-cesm": {
+    "annotations": "/home/adminteam/Documents/data/CDD-CESM - MASS/Radiology-manual-annotations.xlsx",
+    "segmentations": "/home/adminteam/Documents/data/CDD-CESM - MASS/Radiology_hand_drawn_segmentations_v2.csv",
+    "images": "/home/adminteam/Documents/data/CDD-CESM - MASS/images",
+    "map": "config/cdd-cesm.json"
+  },
+  "vida": {
+    "images": "/home/adminteam/Documents/data/VIDA/images",
+    "annotations": "/home/adminteam/Documents/data/only_mass_json/",
+    "map": "config/vida.json"
+  },
+  "csaw": {
+    "images": "/home/adminteam/Documents/data/CSAW - MASS/csaw/mass_only_images/",
+    "masks": "/home/adminteam/Documents/data/CSAW - MASS/csaw/mass_only_masks/",
+    "screening_data": "/home/adminteam/Documents/data/CSAW - MASS/CSAW-CC_breast_cancer_screening_data.csv"
+  },
+  "vindr": {
+    "images": "/home/adminteam/Documents/data/VINDR - MASS/mass_images_CSV_file/",
+    "finding": "/home/adminteam/Documents/data/VINDR - MASS/finding_annotations.xlsx"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "shape": {
+    "IRREGULAR": "IRREGULAR",
+    "OVAL": "OVAL",
+    "ROUND": "ROUND",
+    "ROUND ": "ROUND",
+    "OVAL ": "OVAL",
+    "ROUND-OVAL": "ROUND",
+    "ROUND - OVAL": "ROUND",
+    "_": { "action": "drop" }
+  },
+  "margin": {
+    "SPECULATED": "SPICULATED",
+    "CIRCUMSCRIBED": "CIRCUMSCRIBED",
+    "INDISTINCT": "ILL_DEFINED",
+    "OBSCURED": "OBSCURED",
+    "PARTIALLY OBSCURED LOBULATED": "OBSCURED",
+    "CIRCUMSCRIBED- OBSCURED": "CIRCUMSCRIBED",
+    "IRREGULAR": { "action": "drop" },
+    "MICROLOBULATED": "MICROLOBULATED",
+    "LOBULATED PARTIALLY OBSCURED": "OBSCURED",
+    "LOBULATED CIRCUMSCRIBED": "CIRCUMSCRIBED",
+    "INDISTINCT ": "ILL_DEFINED",
+    "_": { "action": "drop" },
+    "SPECULATED ": "SPICULATED",
+    "IRREGULAR ": { "action": "drop" }
+  },
+  "pathology": {
+    "MALIGNANT": "MALIGNANT",
+    "BENIGN": "BENIGN"
+  },
+  "birads": {
+    "5": "5",
+    "3": "3",
+    "4": "4",
+    "2": "2",
+    "4$2": "4",
+    "5$2": "5",
+    "3$2": "3"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "shape": {
+    "IRREGULAR": 0,
+    "OVAL": 1,
+    "ROUND": 2
+  },
+  "margin": {
+    "SPICULATED": 0,
+    "ILL_DEFINED": 1,
+    "CIRCUMSCRIBED": 2,
+    "OBSCURED": 3,
+    "MICROLOBULATED": 4
+  },
+  "pathology": { "MALIGNANT": 0, "BENIGN": 1 },
+  "birads": { "0": 0, "2": 1, "3": 2, "4": 3, "5": 4 },
+  "malignancy": { "LOW": 0, "HIGH": 1 }
+}
