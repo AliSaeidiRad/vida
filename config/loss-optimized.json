@@ -1,0 +1,23 @@
+{
+  "gamma": {
+    "shape": 1.2,
+    "margin": 1.7,
+    "birads": 1.5,
+    "pathology": 1.5,
+    "malignancy": 1.5
+  },
+  "smoothing": {
+    "shape": 0.05,
+    "margin": 0.05,
+    "birads": 0.05,
+    "pathology": 0.03,
+    "malignancy": 0.05
+  },
+  "task_weights": {
+    "pathology": 1.0,
+    "birads": 2.2,
+    "margin": 1.7,
+    "shape": 1.3,
+    "malignancy": 1.0
+  }
+}

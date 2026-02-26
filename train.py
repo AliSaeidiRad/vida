@@ -207,8 +207,9 @@ def train(
     scaler: torch.GradScaler,
     use_amp: bool,
     label2id: Dict[str, Dict[str, int]],
+    patience: int,
 ):
-    early_stopping = EarlyStopping(patience=30, mode="min")
+    early_stopping = EarlyStopping(patience=patience, mode="min")
 
     history = {
         "train_loss": [],
@@ -362,6 +363,7 @@ def main(
     lrf: float = 1e-8,
     freeze_backbone: bool = True,
     freeze_attention: bool = False,
+    patience: int = 100,
 ):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -591,6 +593,7 @@ def main(
         scaler=scaler,
         use_amp=use_amp,
         label2id=label2id,
+        patience=patience,
     )
 
     test_dataloader = DataLoader(
@@ -652,6 +655,7 @@ if __name__ == "__main__":
     parser.add_argument("--freeze-attention", action="store_true")
 
     parser.add_argument("--loss", type=str, default="config/loss.json")
+    parser.add_argument("--patience", type=int, default=100)
 
     args = parser.parse_args()
 
@@ -677,6 +681,7 @@ if __name__ == "__main__":
             freeze_backbone=args.freeze_backbone,
             freeze_attention=args.freeze_attention,
             loss_args=args.loss,
+            patience=args.patience,
         )
     end_dt = datetime.now()
 
