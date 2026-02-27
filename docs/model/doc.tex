@@ -1,0 +1,154 @@
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\documentclass[11pt, a4paper]{article}
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{fontspec}
+
+\usepackage[english, bidi=basic, provide=*]{babel}
+
+\babelprovide[import, onchar=ids fonts]{english}
+
+% Set default/Latin font to Sans Serif in the main (rm) slot
+\babelfont{rm}{Noto Sans}
+
+% Math and formatting packages
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+
+% Hyperref must be last
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+
+\title{\textbf{Architectural Documentation: \\ Multi-Task CNN for Mammogram Mass ROI Classification}}
+\author{Model Design \& Implementation Overview}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document outlines the architecture, features, and mathematical formulations of a custom Multi-Task Convolutional Neural Network (CNN) designed for the advanced classification of mammographic masses. Rather than processing full mammograms, the model is specifically optimized to analyze cropped Regions of Interest (ROIs) containing previously detected masses. The network leverages a shared backbone architecture, spatial and channel attention mechanisms, and multiple specialized classification heads. Furthermore, it utilizes a sophisticated multi-task loss formulation incorporating task-specific focal loss, label smoothing, and dynamic or static task weighting to simultaneously predict mass shape, margin, pathology, BI-RADS category, and malignancy level.
+\end{abstract}
+
+\section{Introduction}
+The objective of this model is to extract comprehensive clinical characteristics from a localized mammogram mass ROI. By isolating the detected mass, the network focuses strictly on relevant morphological and textural features without the confounding background tissue of the full mammogram. The model simultaneously predicts five distinct clinical attributes, framing the problem as a Multi-Task Learning (MTL) paradigm.
+
+\section{Task Definition and Label Mapping}
+The model is designed to handle five distinct classification tasks, each mapped to a specific classification head. The classes for each task are detailed in Table \ref{tab:label_mapping}.
+
+\begin{table}[h]
+\centering
+\caption{Task Definitions and Class Mappings}
+\label{tab:label_mapping}
+\begin{tabular}{@{}llc@{}}
+\toprule
+\textbf{Task / Head} & \textbf{Classes} & \textbf{Number of Classes} \\ \midrule
+\textbf{Shape}       & Irregular (0), Oval (1), Round (2) & 3 \\
+\textbf{Margin}      & Spiculated (0), Ill-Defined (1), Circumscribed (2), & \multirow{2}{*}{5} \\
+                     & Obscured (3), Microlobulated (4) & \\
+\textbf{Pathology}   & Malignant (0), Benign (1) & 2 \\
+\textbf{BI-RADS}     & 0 (0), 2 (1), 3 (2), 4 (3), 5 (4) & 5 \\
+\textbf{Malignancy}  & Low (0), High (1) & 2 \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Model Architecture}
+The network is structured into three main components: a feature extraction backbone, an attention module, and parallel task-specific classification heads.
+
+\subsection{Backbone}
+The default backbone for feature extraction is \texttt{convnext\_base.fb\_in22k\_ft\_in1k}, which relies on the ConvNeXt architecture pre-trained on ImageNet-22k and fine-tuned on ImageNet-1k. This provides robust, high-level hierarchical feature representations of the input ROI. The global pooling layer of the native backbone is bypassed to allow the custom attention modules to operate on the raw spatial feature maps.
+
+\subsection{Attention Mechanisms}
+To force the network to focus on the most salient pathological features within the ROI, an attention mechanism is applied to the spatial feature maps prior to global pooling. The primary mechanism utilized is the \textbf{Convolutional Block Attention Module (CBAM)}, which computes attention sequentially along two separate dimensions: channel and spatial. An alternative \textbf{Squeeze-and-Excitation (SE)} block is also supported.
+
+\subsubsection{Channel Attention Module (CAM)}
+The CAM exploits the inter-channel relationship of features. Let $F \in \mathbb{R}^{C \times H \times W}$ be the input feature map. The channel attention $M_c \in \mathbb{R}^{C \times 1 \times 1}$ is computed as:
+\begin{equation}
+M_c(F) = \sigma \left( MLP(AvgPool(F)) + MLP(MaxPool(F)) \right)
+\end{equation}
+where $\sigma$ denotes the sigmoid activation function, and $MLP$ represents a shared multi-layer perceptron with a hidden layer reduction ratio (default $r=16$).
+
+\subsubsection{Spatial Attention Module (SAM)}
+The SAM focuses on \textit{where} the informative parts are located. The spatial attention $M_s \in \mathbb{R}^{1 \times H \times W}$ is computed as:
+\begin{equation}
+M_s(F) = \sigma \left( Conv^{7 \times 7} \left( [AvgPool(F); MaxPool(F)] \right) \right)
+\end{equation}
+where the average and max pooled features across the channel axis are concatenated and passed through a convolution layer with a $7 \times 7$ kernel.
+
+The final refined feature map is given by $F'' = M_s(M_c(F) \otimes F) \otimes (M_c(F) \otimes F)$, where $\otimes$ denotes element-wise multiplication. These features are then collapsed via a 2D Adaptive Average Pooling layer.
+
+\subsection{Multi-Head Classification (MLP Heads)}
+Following the global pooling, the flattened feature vector is distributed to five independent classification heads. Each head is structured as a deep Multi-Layer Perceptron (MLP) to decouple the complex shared feature space into task-specific spaces.
+The default architecture for each head consists of descending hidden dimensions (\texttt{[1024, 512, 256, 128]}). Each hidden layer applies:
+\begin{enumerate}
+    \item A Linear fully-connected transformation.
+    \item 1D Batch Normalization to stabilize activations.
+    \item A ReLU activation function.
+    \item Dropout with a probability of $p=0.3$ to prevent overfitting.
+\end{enumerate}
+The final layer outputs the unnormalized logits corresponding to the number of classes for that specific task.
+
+\section{Loss Functions and Optimization}
+
+Because the model predicts five different attributes, it utilizes a sophisticated \textbf{Multi-Task Loss} which aggregates five distinct \textbf{Task-Specific Focal Losses}.
+
+\subsection{Task-Specific Focal Loss}
+Mammogram datasets are inherently imbalanced (e.g., significantly more benign cases than specific malignant types). Standard Cross-Entropy struggles with this. To combat class imbalance and hard-to-classify examples, the network utilizes a heavily customized Focal Loss combined with Label Smoothing.
+
+\subsubsection{Label Smoothing}
+Before computing the loss, target labels undergo smoothing to prevent the model from becoming over-confident, which improves generalization. For a task with $K$ classes and a smoothing factor $\epsilon$, the one-hot encoded target $y$ is modified to:
+\begin{equation}
+y' = y(1 - \epsilon) + \frac{\epsilon}{K}
+\end{equation}
+
+\subsubsection{Focal Loss Formulation}
+Let $p_t$ be the predicted probability for the target class computed via softmax. The task-specific focal loss is defined as:
+\begin{equation}
+\mathcal{L}_{task} = - \sum_{i=1}^{N} \alpha \cdot y'_i \cdot (1 - p_{t,i})^\gamma \cdot \log(p_{t,i})
+\end{equation}
+where $\gamma$ is the focusing parameter that down-weights easily classified examples, and $\alpha$ is an optional class-weighting factor.
+
+\subsection{Multi-Task Loss Aggregation}
+The total loss is a weighted sum of the individual task losses. The system supports two modes of aggregation: \textbf{Static Weighting} and \textbf{Learnable Uncertainty Weighting}.
+
+\subsubsection{Static Task Weighting}
+In static mode, pre-defined scalars weigh the importance of each task:
+\begin{equation}
+\mathcal{L}_{total} = \sum_{t \in Tasks} w_t \cdot \mathcal{L}_{t}
+\end{equation}
+
+\subsubsection{Uncertainty Weighting (Learnable)}
+When enabled, the network learns to weigh tasks dynamically based on homoscedastic task uncertainty. For each task $t$, a parameter $\log(\sigma_t^2)$ is learned:
+\begin{equation}
+\mathcal{L}_{total} = \sum_{t \in Tasks} \left( \exp(-\log(\sigma_t^2)) \cdot \mathcal{L}_t + \log(\sigma_t^2) \right)
+\end{equation}
+This allows the model to decrease the weight of noisier tasks automatically during training.
+
+\subsection{Configured Hyperparameters}
+The static hyperparameters utilized for training, designed specifically for the unique distributions of each mammogram ROI task, are detailed in Table \ref{tab:hyperparams}.
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameter Configurations per Task}
+\label{tab:hyperparams}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Task} & \textbf{Focusing Parameter ($\gamma$)} & \textbf{Label Smoothing ($\epsilon$)} & \textbf{Task Weight ($w_t$)} \\ \midrule
+\textbf{Shape} & 1.0 & 0.05 & 1.2 \\
+\textbf{Margin} & 1.5 & 0.10 & 1.5 \\
+\textbf{Pathology} & 2.0 & 0.05 & 1.0 \\
+\textbf{BI-RADS} & 1.0 & 0.10 & 2.0 \\
+\textbf{Malignancy} & 1.5 & 0.05 & 1.0 \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Inference and Advanced Features}
+\subsection{Test-Time Augmentation (TTA)}
+To improve inference stability and accuracy, the model supports Test-Time Augmentation via the \texttt{predict\_tta()} method. During inference, the input cropped ROI undergoes multiple predefined transformations (e.g., flips, rotations). The network processes each transformed ROI independently, and the resulting multi-head logits are aggregated (usually averaged) to produce the final robust prediction.
+
+\section{Conclusion}
+The proposed multi-head architecture is uniquely tailored for the localized analysis of mammogram masses. By coupling a powerful ConvNeXt backbone with CBAM attention, the model extracts highly distinct spatial features from the ROI. The decoupled deep MLP classification heads, guided by a heavily customized Multi-Task Focal Loss with label smoothing, ensure robust handling of class imbalance and optimize joint predictive performance across all critical clinical indicators.
+
+\end{document}
