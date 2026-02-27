@@ -1,28 +1,19 @@
-% --- UNIVERSAL PREAMBLE BLOCK ---
-\documentclass[11pt, a4paper]{article}
-\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
-\usepackage{fontspec}
+\documentclass[11pt,a4paper]{article}
 
-\usepackage[english, bidi=basic, provide=*]{babel}
-
-\babelprovide[import, onchar=ids fonts]{english}
-
-% Set default/Latin font to Sans Serif in the main (rm) slot
-\babelfont{rm}{Noto Sans}
-
-% Math and formatting packages
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{multirow}
+\usepackage{caption}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{array}
 
-% Hyperref must be last
-\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
-
 \title{\textbf{Architectural Documentation: \\ Multi-Task CNN for Mammogram Mass ROI Classification}}
-\author{Model Design \& Implementation Overview}
-\date{}
+\author{Ali Saeidi Rad}
+\date{27 Feb 2026}
 
 \begin{document}
 
@@ -36,23 +27,26 @@ This document outlines the architecture, features, and mathematical formulations
 The objective of this model is to extract comprehensive clinical characteristics from a localized mammogram mass ROI. By isolating the detected mass, the network focuses strictly on relevant morphological and textural features without the confounding background tissue of the full mammogram. The model simultaneously predicts five distinct clinical attributes, framing the problem as a Multi-Task Learning (MTL) paradigm.
 
 \section{Task Definition and Label Mapping}
-The model is designed to handle five distinct classification tasks, each mapped to a specific classification head. The classes for each task are detailed in Table \ref{tab:label_mapping}.
+The model is designed to handle five distinct classification tasks, each mapped to a specific classification head. The classes for each task are detailed in Table \ref{table:label_mapping}.
 
-\begin{table}[h]
-\centering
-\caption{Task Definitions and Class Mappings}
-\label{tab:label_mapping}
-\begin{tabular}{@{}llc@{}}
-\toprule
-\textbf{Task / Head} & \textbf{Classes} & \textbf{Number of Classes} \\ \midrule
-\textbf{Shape}       & Irregular (0), Oval (1), Round (2) & 3 \\
-\textbf{Margin}      & Spiculated (0), Ill-Defined (1), Circumscribed (2), & \multirow{2}{*}{5} \\
-                     & Obscured (3), Microlobulated (4) & \\
-\textbf{Pathology}   & Malignant (0), Benign (1) & 2 \\
-\textbf{BI-RADS}     & 0 (0), 2 (1), 3 (2), 4 (3), 5 (4) & 5 \\
-\textbf{Malignancy}  & Low (0), High (1) & 2 \\ \bottomrule
-\end{tabular}
-\end{table}
+
+\begin{center}
+    \captionof{table}{Task Definitions and Class Mappings}
+    \label{table:label_mapping}
+    \begin{tabular}{|c|c|c|c|c|c|}
+        \hline
+        Head                    & Label                           & Class              & Head                        & Label     & Class \\ \hline
+        \multirow{3}{*}{Shape}  & Irregular                       & 0                  & \multirow{5}{*}{BI-RADS}    & 0         & 0     \\ \cline{2-3} \cline{5-6} 
+                                & Oval                            & 1                  &                             & 2         & 1     \\ \cline{2-3} \cline{5-6} 
+                                & Round                           & 2                  &                             & 3         & 2     \\ \cline{1-3} \cline{5-6} 
+        \multirow{6}{*}{Margin} & Spiculated                      & 0                  &                             & 4         & 3     \\ \cline{2-3} \cline{5-6} 
+                                & Ill-Defined                     & 1                  &                             & 5         & 4     \\ \cline{2-6} 
+                                & Circumscribed                   & 2                  & \multirow{2}{*}{Pathology}  & Malignant & 0     \\ \cline{2-3} \cline{5-6} 
+                                & Obscured                        & 3                  &                             & Benign    & 1     \\ \cline{2-6} 
+                                & \multirow{2}{*}{MicroLobulated} & \multirow{2}{*}{4} & \multirow{2}{*}{Malignancy} & Low       & 0     \\ \cline{5-6} 
+                                &                                 &                    &                             & High      & 1     \\ \hline
+    \end{tabular}
+\end{center}
 
 \section{Model Architecture}
 The network is structured into three main components: a feature extraction backbone, an attention module, and parallel task-specific classification heads.
@@ -127,22 +121,21 @@ When enabled, the network learns to weigh tasks dynamically based on homoscedast
 This allows the model to decrease the weight of noisier tasks automatically during training.
 
 \subsection{Configured Hyperparameters}
-The static hyperparameters utilized for training, designed specifically for the unique distributions of each mammogram ROI task, are detailed in Table \ref{tab:hyperparams}.
+The static hyperparameters utilized for training, designed specifically for the unique distributions of each mammogram ROI task, are detailed in Table \ref{table:hyperparams}.
 
-\begin{table}[h]
-\centering
-\caption{Hyperparameter Configurations per Task}
-\label{tab:hyperparams}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Task} & \textbf{Focusing Parameter ($\gamma$)} & \textbf{Label Smoothing ($\epsilon$)} & \textbf{Task Weight ($w_t$)} \\ \midrule
-\textbf{Shape} & 1.0 & 0.05 & 1.2 \\
-\textbf{Margin} & 1.5 & 0.10 & 1.5 \\
-\textbf{Pathology} & 2.0 & 0.05 & 1.0 \\
-\textbf{BI-RADS} & 1.0 & 0.10 & 2.0 \\
-\textbf{Malignancy} & 1.5 & 0.05 & 1.0 \\ \bottomrule
-\end{tabular}
-\end{table}
+\begin{center}
+    \captionof{table}{Hyperparameter Configurations per Task}
+    \label{table:hyperparams}
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        Task       & Focusing Parameter & Label Smoothing & Task Weight \\ \hline
+        Shape      & 1.0                & 0.05            & 1.2         \\ \hline
+        Margin     & 1.5                & 0.1             & 1.5         \\ \hline
+        Pathology  & 2.0                & 0.05            & 1.0         \\ \hline
+        BI-RADS    & 1.0                & 0.1             & 2.0         \\ \hline
+        Malignancy & 1.5                & 0.05            & 1.0         \\ \hline
+    \end{tabular}
+\end{center}
 
 \section{Inference and Advanced Features}
 \subsection{Test-Time Augmentation (TTA)}

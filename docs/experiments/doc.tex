@@ -1,0 +1,174 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{xcolor}
+
+\onehalfspacing
+
+\title{\textbf{Experimental Documentation}\\
+Multi-Task CNN for Mammogram Mass ROI Classification}
+\author{Ali Saeidi Rad}
+\date{27 February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report documents the experimental design, configurations, and outcomes of a multi-task convolutional neural network (CNN) developed for classification of mammographic mass regions of interest (ROIs). The network simultaneously predicts morphological and clinical attributes, including shape, margin, BI-RADS assessment, and pathology. Multiple training strategies, preprocessing pipelines, and dataset combinations were evaluated to determine an optimal configuration.
+\end{abstract}
+
+\section{Experiment 1}
+
+\subsection*{Overview}
+
+In the initial experiment, the network consisted of four prediction heads:
+\textit{Shape}, \textit{Margin}, \textit{BI-RADS}, and \textit{Pathology}.
+
+\subsection*{Configuration}
+
+\begin{enumerate}
+    \item \textbf{Backbone:} \texttt{convnext\_base.fb\_in22k\_ft\_in1k}
+    
+    \item \textbf{Optimizer:} \texttt{AdamW}
+    
+    \item \textbf{Scheduler:} \texttt{CosineAnnealingWarmRestarts}
+    \begin{enumerate}
+        \item Initial learning rate: $\eta_{0} = 10^{-5}$
+        \item Minimum learning rate: $\eta_{\min} = 10^{-8}$
+        \item Initial restart period: $T_{0} = 20$
+        \item Multiplication factor: $T_{\text{mult}} = 2$
+    \end{enumerate}
+    
+    \item \textbf{Image resizing backbone:} OpenCV
+    
+    \item \textbf{Preprocess:} Normal
+    
+    \item \textbf{Datasets:} CBIS-DDSM + VIDA
+\end{enumerate}
+
+\subsection*{Results}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Performance comparison on the test dataset with and without weighted TTA.}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{Test Dataset}} 
+& \multicolumn{3}{c}{\textbf{Test Dataset + Weighted TTA}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Head} 
+& F1 (\%) & Acc (\%) & AUC (\%) 
+& F1 (\%) & Acc (\%) & AUC (\%) \\
+\midrule
+Margin    & 49.87 & 46.79 & 82.99 & 47.95 & 46.15 & 82.13 \\
+Shape     & 41.49 & 39.74 & 73.10 & 41.90 & 39.74 & 73.77 \\
+BI-RADS   & 48.11 & 50.00 & 84.20 & 51.62 & 53.85 & 83.77 \\
+Pathology & 73.90 & 73.72 & 83.75 & 74.54 & 74.36 & 84.82 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experiment 10 (Nominated Strategy)}
+After extensive hyperparameter tuning and pipeline modifications, the following configuration was selected as the most stable and effective.
+
+\subsection*{Configuration}
+
+\begin{enumerate}
+    \item \textbf{Backbone:} \texttt{convnext\_base.fb\_in22k\_ft\_in1k}
+    
+    \item \textbf{Optimizer:} \texttt{AdamW}
+    
+    \item \textbf{Scheduler:} \texttt{CosineAnnealingWarmRestarts}
+    \begin{enumerate}
+        \item Initial learning rate: $\eta_{0} = 10^{-5}$
+        \item Minimum learning rate: $\eta_{\min} = 10^{-8}$
+        \item Initial restart period: $T_{0} = 20$
+        \item Multiplication factor: $T_{\text{mult}} = 2$
+    \end{enumerate}
+    
+    \item \textbf{Image resizing backbone:} \textcolor{red}{Pillow}
+    
+    \item \textbf{Preprocess:} \textcolor{red}{ISS}
+    
+    \item \textbf{Datasets:} CBIS-DDSM + VIDA
+\end{enumerate}
+
+\subsection*{Observed Effects of Design Choices} The following findings were consistently observed across experiments:
+in conducted experiments we find out that following changes has no effect or have negative effects:
+
+\begin{enumerate}
+    \item OpenCV-based resizing degraded performance, likely due to excessive loss of fine structural details. 
+    \item Standard normalization alone was insufficient for robust learning. 
+    \item Removing any prediction head reduced overall performance, indicating beneficial multi-task feature sharing. 
+    \item BI-RADS predictions alone were not reliable for inferring pathology outcomes. 
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Performance comparison on the test dataset with and without weighted TTA.}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{Test Dataset}} 
+& \multicolumn{3}{c}{\textbf{Test Dataset + Weighted TTA}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Head} 
+& F1 (\%) & Acc (\%) & AUC (\%) 
+& F1 (\%) & Acc (\%) & AUC (\%) \\
+\midrule
+Margin    & 51.11 & 48.07 & 82.91 & 51.85 & 50.00 & 83.20 \\
+Shape     & 46.66 & 46.15 & 74.34 & 45.54 & 45.51 & 74.56 \\
+BI-RADS   & 51.27 & 52.56 & 83.45 & 51.70 & 52.56 & 84.37 \\
+Pathology & 73.20 & 73.07 & 85.10 & 71.89 & 71.79 & 85.62 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experiment 24 (Final Pipeline)}
+Subsequent experiments incorporated additional datasets and an extra prediction head for malignancy probability when pathology labels were unavailable.
+
+\subsection*{Training Strategy}
+
+\begin{enumerate}
+   \item \textbf{Stage 1 — Pretraining:} Train on CBIS-DDSM and CDD-CESM for 700 epochs with frozen backbone using $lr_{0}=10^{-5}$.
+   \item \textbf{Stage 2 — Full Fine-Tuning:} Continue training for 700 epochs with backbone unfrozen using a reduced learning rate $lr_{0}=10^{-6}$.
+    \item \textbf{Stage 3 — Dataset-Specific Fine-Tuning:} Fine-tune individual heads (maximum 300 epochs, early stopping patience of 30 epochs):
+    \begin{enumerate}
+        \item VIDA: Train Pathology head only; freeze attention modules and backbone.
+        \item CSAW: \textcolor{red}{Excluded due to unreliable annotations.}
+        \item VINDR: Train relevant heads while freezing Pathology, Margin, Shape, attention modules, and backbone.
+    \end{enumerate}
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\small
+\caption{\textcolor{red}{UNDER GOING}}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{Test Dataset}} 
+& \multicolumn{3}{c}{\textbf{Test Dataset + Weighted TTA}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Head} 
+& F1 (\%) & Acc (\%) & AUC (\%) 
+& F1 (\%) & Acc (\%) & AUC (\%) \\
+\midrule
+Margin    & - & - & - & - & - & - \\
+Shape     & - & - & - & - & - & - \\
+BI-RADS   & - & - & - & - & - & - \\
+Pathology & - & - & - & - & - & - \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
