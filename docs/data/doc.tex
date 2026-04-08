@@ -1,0 +1,277 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Define colors for syntax highlighting
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Configure listings style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize\color{black},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\onehalfspacing
+
+\title{\textbf{Dataset Prepration}\\
+Multi-Task CNN for Mammogram Mass ROI Classification}
+\author{Ali Saeidi Rad}
+\date{27 February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    In this article i explain the dataset preapration for each dataset used.
+\end{abstract}
+
+\section{CBIS-DDSM}
+\href{https://www.kaggle.com/datasets/awsaf49/cbis-ddsm-breast-cancer-image-dataset}{CBIS-DDSM} Dataset used for training Shape, Margin, Pathology, BI-RADS and Malignancy heads.
+to prepare this dataset we first need to convert labels of Shape and Margin into standard form. existings labels are in Table.
+because we aim for detecting mass, we only use the concatenated version of \texttt{mass\_case\_description\_train\_set.csv} and  \texttt{mass\_case\_description\_test\_set.csv} files.
+To extract images and their corresponding masks we need to first extract the SeriesInstanceUID based on provided image file path.
+
+
+\begin{lstlisting}[language=Python, caption=Extracting image file path]
+jpeg = "path/to/jpeg/directory"
+def SeriesInstanceUID(path):
+    """Extract SeriesInstanceUID of the image file path"""
+    return path.split("/")[-2]
+def JPEGImage(series_uid):
+    image_path = list(glob.glob(os.path.join(
+        jpeg, str(series_uid),  "*.jpg"
+    )))
+    assert len(image_path) == 1
+    return str(image_path[0])
+df["ImageSeriesInstanceUID"] = df["image file path"].apply(
+    SeriesInstanceUID
+)
+df["JPEGImage"] = df["ImageSeriesInstanceUID"].apply(JPEGImage)
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python, caption=Extracting mask file path]
+def StudyInstanceUID(path):
+    return path.split("/")[-3]
+def SeriesInstanceUID(path):
+    return path.split("/")[-2]
+def Name(path):
+    return path["image file path"].split("/")[0] + \
+    "_" + str(path["abnormality id"])
+
+df["PatientName"] = df[
+    ["image file path", "abnormality id"]
+].apply(Name, axis=1)
+df["MaskStudyInstanceUID"] = df[
+    "ROI mask file path"
+].apply(StudyInstanceUID)
+df["MaskSeriesInstanceUID"] = df[
+    "ROI mask file path"
+].apply(SeriesInstanceUID)
+df["PatientName"] = df[[
+    "image file path", "abnormality id"]
+].apply(Name, axis=1)
+df["JPEGMask"] = df[
+    [
+        "PatientName",
+        "MaskStudyInstanceUID",
+        "MaskSeriesInstanceUID",
+    ]
+].apply(JPEGMask, axis=1)
+\end{lstlisting}
+
+after extracting image and mask file path, now we have to create a crop version of image,
+based on the image and mask provided inside the dataset.
+
+\begin{lstlisting}[language=Python, caption=Crop images based on provided mask]
+output_dir = "desired/output/directory"
+def JPEGCCrop(df):
+    pname = df["PatientName"]
+    image_path = df["JPEGImage"]
+    image = cv2.imread(image_path, cv2.IMREAD_COLOR_RGB)
+    mask = cv2.imread(df["JPEGMask"], cv2.IMREAD_GRAYSCALE)
+
+    assert mask is not None
+    assert image is not None
+
+    _, thresh = cv2.threshold(mask, 127, 255, 0)
+    contours, _ = cv2.findContours(
+        thresh, 
+        cv2.RETR_TREE, 
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+    list_of_pts = []
+    for ctr in contours:
+        list_of_pts += [pt[0] for pt in ctr]  # type: ignore
+    center_pt = np.array(list_of_pts).mean(axis=0)
+    clock_ang_dist = ClockwiseAngleDistance(center_pt)
+    list_of_pts = sorted(list_of_pts, key=clock_ang_dist)
+    ctr = np.array(list_of_pts).reshape((-1, 1, 2)).astype(np.int32)
+
+    x, y, w, h = cv2.boundingRect(ctr)
+    y_min, y_max = y, y + h
+    x_min, x_max = x, x + w
+
+    h, w = mask.shape
+    pad_left, pad_bottom, pad_right, pad_top = 200, 200, 200, 200
+    x_min = max(0, x_min - pad_left)
+    y_min = max(0, y_min - pad_top)
+    x_max = min(w, x_max + pad_right)
+    y_max = min(h, y_max + pad_bottom)
+    roi = image[y_min:y_max, x_min:x_max]
+
+    crop_path = os.path.join(
+        output_dir, 
+        "images", 
+        f"{pname}_{os.path.basename(image_path)}"
+    )
+    cv2.imwrite(crop_path, roi)
+
+    return crop_path
+
+df["JPEGCrop"] = df[
+    ["JPEGImage", "JPEGMask", "PatientName"]
+    ].apply(
+    JPEGCCrop, axis=1
+)
+\end{lstlisting}
+
+now we just need to convert labels of margin and shape into standard form.
+
+\begin{lstlisting}[language=Python, caption=Labels conversations]
+label_map = {
+  "margin": {
+    "SPICULATED": "SPICULATED",
+    "Unknown": { "action": "drop" },
+    "ILL_DEFINED": "ILL_DEFINED",
+    "ILL_DEFINED-SPICULATED": "ILL_DEFINED",
+    "MICROLOBULATED": "MICROLOBULATED",
+    "MICROLOBULATED-ILL_DEFINED": "MICROLOBULATED",
+    "MICROLOBULATED-SPICULATED": "MICROLOBULATED",
+    "MICROLOBULATED-ILL_DEFINED-SPICULATED": "MICROLOBULATED",
+    "OBSCURED": "OBSCURED",
+    "OBSCURED-ILL_DEFINED": "OBSCURED",
+    "OBSCURED-ILL_DEFINED-SPICULATED": "OBSCURED",
+    "OBSCURED-SPICULATED": "OBSCURED",
+    "OBSCURED-CIRCUMSCRIBED": "OBSCURED",
+    "CIRCUMSCRIBED-ILL_DEFINED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED-OBSCURED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED-OBSCURED-ILL_DEFINED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED-MICROLOBULATED-ILL_DEFINED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED-MICROLOBULATED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED-SPICULATED": "CIRCUMSCRIBED",
+    "CIRCUMSCRIBED": "CIRCUMSCRIBED"
+  },
+  "shape": {
+    "ARCHITECTURAL_DISTORTION": { "action": "drop" },
+    "LYMPH_NODE": { "action": "drop" },
+    "FOCAL_ASYMMETRIC_DENSITY": { "action": "drop" },
+    "ASYMMETRIC_BREAST_TISSUE": { "action": "drop" },
+    "Unknown": { "action": "drop" },
+    "ROUND": "ROUND",
+    "ROUND-OVAL": "ROUND",
+    "ROUND-LOBULATED": "ROUND",
+    "ROUND-IRREGULAR-ARCHITECTURAL_DISTORTION": "ROUND",
+    "IRREGULAR": "IRREGULAR",
+    "IRREGULAR-ARCHITECTURAL_DISTORTION": "IRREGULAR",
+    "IRREGULAR-FOCAL_ASYMMETRIC_DENSITY": "IRREGULAR",
+    "IRREGULAR-ASYMMETRIC_BREAST_TISSUE": "IRREGULAR",
+    "OVAL": "OVAL",
+    "OVAL-LYMPH_NODE": "OVAL",
+    "OVAL-LOBULATED": "OVAL",
+    "LOBULATED": "OVAL",
+    "LOBULATED-LYMPH_NODE": "OVAL",
+    "LOBULATED-ARCHITECTURAL_DISTORTION": "OVAL",
+    "LOBULATED-OVAL": "OVAL",
+    "LOBULATED-IRREGULAR": "OVAL"
+  },
+  "pathology": {
+    "MALIGNANT": "MALIGNANT",
+    "BENIGN": "BENIGN",
+    "BENIGN_WITHOUT_CALLBACK": "BENIGN"
+  },
+  "birads": {
+    "0": "0",
+    "1": { "action": "drop" },
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5": "5"
+  }
+}
+\end{lstlisting}
+
+at the end we can split our data into train, validation and test.
+
+\begin{lstlisting}[language=Python, caption=Train-val-test split based on subtlety provided inside the dataset]
+def split_group(
+    df: pd.DataFrame,
+    train_frac: float,
+    val_frac: float,
+    test_frac: float,
+    random_state=42,
+    stratify: str = "pathology",
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    assert train_frac + val_frac + test_frac == 1.0
+
+    train, temp = train_test_split(
+        df,
+        test_size=(1 - train_frac),
+        stratify=df[stratify],
+        random_state=random_state,
+    )
+
+    val, test = train_test_split(
+        temp,
+        test_size=test_frac / (val_frac + test_frac),
+        stratify=temp[stratify],
+        random_state=random_state,
+    )
+
+    return train, val, test
+low = df[df["subtlety"] >= 4]
+mid = df[df["subtlety"] == 3]
+high = df[df["subtlety"] <= 2]
+
+train_l, val_l, test_l = split_group(low, 0.6, 0.2, 0.2)
+train_m, val_m, test_m = split_group(mid, 0.5, 0.25, 0.25)
+train_h, val_h, test_h = split_group(high, 0.3, 0.3, 0.4)
+
+train = pd.concat([train_h, train_m, train_l])
+val = pd.concat([val_h, val_m, val_l])
+test = pd.concat([test_h, test_m, test_l])
+\end{lstlisting}
+
+examples of images are in following figure.
+
+\end{document}

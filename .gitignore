@@ -12,3 +12,4 @@ images/
 *.fls
 *.log
 *.synctex.gz
+*.out
