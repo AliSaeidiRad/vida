@@ -350,6 +350,7 @@ def evaluate(
 
 def main(
     epochs: int,
+    data_source: str,
     datasets: Dict[str, Dict[str, Any]],
     use_amp: bool,
     label2id_json: str,
@@ -369,7 +370,7 @@ def main(
 
     dfs = prepare_dataset(
         datasets=datasets,
-        output="temp",
+        output=data_source,
     )
 
     label2id: Dict[str, Dict[str, int]] = json.load(open(label2id_json, "r"))
@@ -640,6 +641,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--epochs", type=int, default=460, required=False)
+    parser.add_argument("--data", type=str, default="temp", required=True)
     parser.add_argument("--datasets", nargs="+", required=True)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument("--label2id", type=str, default="config/label2id.json")
@@ -666,11 +668,12 @@ if __name__ == "__main__":
     if args.only_prepare_data:
         prepare_dataset(
             {k: v for k, v in all_datasets.items() if k in args.datasets},
-            output="temp",
+            output=args.data,
         )
     else:
         main(
             epochs=args.epochs,
+            data_source=args.data,
             datasets={k: v for k, v in all_datasets.items() if k in args.datasets},
             use_amp=args.amp,
             label2id_json=args.label2id,
