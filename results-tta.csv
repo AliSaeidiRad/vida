@@ -1,0 +1,21 @@
+,Experiment,Train Datasets,Valid Datasets,Frozen Heads,Head,Checkpoint,Backbone frozen,Attention frozen,F1 Score,Accuracy,ROC-AUC
+0,experiment-1,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,MARGIN,False,True,False,0.3509497063551371,0.3494704992435703,0.6619133676365293
+1,experiment-1,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,SHAPE,False,True,False,0.47903174903216805,0.4886535552193646,0.6765651095735262
+2,experiment-1,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,BIRADS,False,True,False,0.384320637496652,0.3918305597579425,0.6988631651486439
+3,experiment-1,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,PATHOLOGY,False,True,False,0.7513656713043871,0.7413010590015129,0.76770097040853
+4,experiment-1,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,MALIGNANCY,False,True,False,0.620373860743146,0.6142208774583964,0.7446525176862255
+5,experiment-2,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,MARGIN,True,False,False,0.3486799174884674,0.3555219364599092,0.6727591353716466
+6,experiment-2,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,SHAPE,True,False,False,0.4363401927168774,0.45385779122541603,0.6664464493018986
+7,experiment-2,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,BIRADS,True,False,False,0.40963365981581457,0.4341906202723147,0.7178354867384233
+8,experiment-2,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,PATHOLOGY,True,False,False,0.7515639773317461,0.7397881996974282,0.7861147717742902
+9,experiment-2,cbis+cdd-cesm,cbis+cdd-cesm+vida+vindr,,MALIGNANCY,True,False,False,0.6199057966426332,0.6157337367624811,0.7544423637120268
+10,experiment-3,cbis+cdd-cesm+vida,cbis+cdd-cesm+vida+vindr,pathology,MARGIN,True,True,True,0.4500769033301268,0.4402420574886536,0.7271129153269349
+11,experiment-3,cbis+cdd-cesm+vida,cbis+cdd-cesm+vida+vindr,pathology,SHAPE,True,True,True,0.44006376840767963,0.4735249621785174,0.6901512853614118
+12,experiment-3,cbis+cdd-cesm+vida,cbis+cdd-cesm+vida+vindr,pathology,BIRADS,True,True,True,0.40432702198833487,0.405446293494705,0.7214443997832495
+13,experiment-3,cbis+cdd-cesm+vida,cbis+cdd-cesm+vida+vindr,pathology,PATHOLOGY,True,True,True,0.7515639773317461,0.7397881996974282,0.7861147717742902
+14,experiment-3,cbis+cdd-cesm+vida,cbis+cdd-cesm+vida+vindr,pathology,MALIGNANCY,True,True,True,0.6940629050756206,0.6913767019667171,0.7042655014565127
+15,experiment-4,cbis+cdd-cesm+vida+vindr,cbis+cdd-cesm+vida+vindr,pathology+shape+margin,MARGIN,True,True,True,0.4500769033301268,0.4402420574886536,0.7271129153269349
+16,experiment-4,cbis+cdd-cesm+vida+vindr,cbis+cdd-cesm+vida+vindr,pathology+shape+margin,SHAPE,True,True,True,0.44006376840767963,0.4735249621785174,0.6901512853614118
+17,experiment-4,cbis+cdd-cesm+vida+vindr,cbis+cdd-cesm+vida+vindr,pathology+shape+margin,BIRADS,True,True,True,0.5170540460155697,0.5355521936459909,0.7690418959257497
+18,experiment-4,cbis+cdd-cesm+vida+vindr,cbis+cdd-cesm+vida+vindr,pathology+shape+margin,PATHOLOGY,True,True,True,0.7378947711573918,0.7231467473524962,0.7768419791541873
+19,experiment-4,cbis+cdd-cesm+vida+vindr,cbis+cdd-cesm+vida+vindr,pathology+shape+margin,MALIGNANCY,True,True,True,0.7430285626908805,0.7367624810892587,0.7958021223470663

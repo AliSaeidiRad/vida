@@ -10,6 +10,33 @@
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{xcolor}
+\usepackage{listings}
+\usepackage{adjustbox}
+
+\definecolor{darkgreen}{rgb}{0.2,0.7,0.5}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize\color{black},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
 
 \onehalfspacing
 
@@ -140,35 +167,137 @@ Subsequent experiments incorporated additional datasets and an extra prediction 
 \subsection*{Training Strategy}
 
 \begin{enumerate}
-   \item \textbf{Stage 1 — Pretraining:} Train on CBIS-DDSM and CDD-CESM for 700 epochs with frozen backbone using $lr_{0}=10^{-5}$.
-   \item \textbf{Stage 2 — Full Fine-Tuning:} Continue training for 700 epochs with backbone unfrozen using a reduced learning rate $lr_{0}=10^{-6}$.
+    \item \textbf{Stage 1 — Pretraining:} Train on CBIS-DDSM and CDD-CESM with frozen backbone. \\
+    \begin{lstlisting}[language=bash, caption=Training Command based on Original Scripts]
+    "$PYTHON" train.py \
+    --epochs 1000 \
+    --datasets cbis cdd-cesm \
+    --label2id config/label2id.json \
+    --preprocess iss \
+    --batch-size 32 \
+    --num-workers 8 \
+    --lr0 1e-5 \
+    --lrf 1e-7 \
+    --freeze-backbone \
+    --loss config/loss.json \
+    --patience 100
+    \end{lstlisting}
+    \item \textbf{Stage 2 — Full Fine-Tuning:} Continue training with backbone unfrozen.
+    \begin{lstlisting}[language=bash, caption=Training Command based on Original Scripts]
+    "$PYTHON" train.py \
+    --epochs 1000 \
+    --datasets cbis cdd-cesm \
+    --label2id config/label2id.json \
+    --preprocess iss \
+    --batch-size 32 \
+    --num-workers 8 \
+    --lr0 1e-6 \
+    --lrf 1e-8 \
+    --loss config/loss-optimized.json \
+    --patience 100 \
+    --checkpoint output/experiment-1/best_f1.pth
+    \end{lstlisting}
     \item \textbf{Stage 3 — Dataset-Specific Fine-Tuning:} Fine-tune individual heads (maximum 300 epochs, early stopping patience of 30 epochs):
+    \begin{lstlisting}[language=bash, caption=Training Command based on Original Scripts]
+    # STAGE 3 - PART I
+    "$PYTHON" train.py \
+    --epochs 1000 \
+    --datasets cbis cdd-cesm vida \
+    --label2id config/label2id.json \
+    --preprocess iss \
+    --batch-size 32 \
+    --num-workers 8 \
+    --lr0 1e-5 \
+    --lrf 1e-8 \
+    --loss config/loss-optimized.json \
+    --freeze-heads pathology \
+    --freeze-backbone \
+    --freeze-attention \
+    --checkpoint output/experiment-2/best_f1.pth
+
+    # STAGE 3 - PART II
+
+    "$PYTHON" train.py \
+    --epochs 1000 \
+    --datasets cbis cdd-cesm vida vindr \
+    --label2id config/label2id.json \
+    --preprocess iss \
+    --batch-size 32 \
+    --num-workers 8 \
+    --lr0 1e-5 \
+    --lrf 1e-8 \
+    --loss config/loss-optimized.json \
+    --freeze-heads pathology shape margin \
+    --freeze-backbone \
+    --freeze-attention \
+    --checkpoint output/experiment-3/best_f1.pth
+    \end{lstlisting}
     \begin{enumerate}
-        \item VIDA: Train Pathology head only; freeze attention modules and backbone.
-        \item CSAW: \textcolor{red}{Excluded due to unreliable annotations.}
-        \item VINDR: Train relevant heads while freezing Pathology, Margin, Shape, attention modules, and backbone.
+    \item VIDA: Train Pathology head only; freeze attention modules and backbone.
+    \item CSAW: \textcolor{red}{Excluded due to unreliable annotations.}
+    \item VINDR: Train relevant heads while freezing Pathology, Margin, Shape, attention modules, and backbone.
     \end{enumerate}
 \end{enumerate}
 
-\begin{table}[h]
-\centering
-\small
-\caption{\textcolor{red}{UNDER GOING}}
-\begin{tabular}{lcccccc}
+\begin{table}[!ht]
+    \centering
+    \small
+    \caption{Final Results of each Stage}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{cclcccccc}
 \toprule
-& \multicolumn{3}{c}{\textbf{Test Dataset}} 
-& \multicolumn{3}{c}{\textbf{Test Dataset + Weighted TTA}} \\
-\cmidrule(lr){2-4} \cmidrule(lr){5-7}
-\textbf{Head} 
-& F1 (\%) & Acc (\%) & AUC (\%) 
-& F1 (\%) & Acc (\%) & AUC (\%) \\
+& &  & &\multicolumn{1}{c}{\textbf{Test Dataset}} 
+& &  \multicolumn{3}{c}{\textbf{Test Dataset + Weighted TTA}} \\
+Stage                        & Train Datasets                                    & Head       & F1-Score & Accuracy & ROC-AUC & F1-Score & Accuracy & ROC-AUC \\
+\cmidrule(lr){4-6}\cmidrule(lr){7-9}
+\multirow{5}{*}{1}           & \multirow{5}{*}{CBIS-DDSM, CDD-CESM}              & Margin     & 33.08\%  & 33.28\%  & 65.52\% & 35.09\% & 34.95\% & 66.19\% \\
+                             &                                                   & Shape      & 47.06\%  & 47.81\%  & 66.92\% & 47.90\% & 48.87\% & 67.66\% \\
+                             &                                                   & BI-RADS    & 38.60\%  & 38.73\%  & 69.97\% & 38.43\% & 39.18\% & 69.89\% \\
+                             &                                                   & Pathology  & 74.08\%  & 72.92\%  & 76.12\% & 75.14\% & 74.13\% & 76.77\% \\
+                             &                                                   & Malignancy & 60.89\%  & 60.36\%  & 73.74\% & 62.04\% & 61.42\% & 74.47\% \\
 \midrule
-Margin    & - & - & - & - & - & - \\
-Shape     & - & - & - & - & - & - \\
-BI-RADS   & - & - & - & - & - & - \\
-Pathology & - & - & - & - & - & - \\
+\multirow{5}{*}{2}           & \multirow{5}{*}{CBIS-DDSM, CDD-CESM}              & Margin     & 33.45\%  & 34.04\%  & 66.67\% & 34.87\% & 35.55\% & 67.28\% \\
+                             &                                                   & Shape      & 43.54\%  & \textbf{45.23\%}  & 66.11\% & 43.63\% & 45.39\% & 66.64\% \\
+                             &                                                   & BI-RADS    & 41.98\%  & 43.42\%  & 72.21\% & 40.96\% & 43.42\% & 71.78\% \\
+                             &                                                   & Pathology  & 75.80\%  & 74.58\%  & 78.10\% & 75.16\% & 73.98\% & 78.61\% \\
+                             &                                                   & Malignancy & 62.19\%  & 61.72\%  & 74.37\% & 61.99\% & 61.57\% & 75.44\% \\
+\midrule
+\multirow{5}{*}{3 - PART I}  & \multirow{5}{*}{CBIS-DDSM, CDD-CESM, VIDA}        & Margin     & 43.08\%  & 42.06\%  & 72.41\% & 45.01\% & 44.02\% & 72.71\% \\
+                             &                                                   & Shape      & 41.62\%  & 44.63\%  & 68.75\% & 44.01\% & 47.35\% & 69.02\% \\
+                             &                                                   & BI-RADS    & 41.02\%  & 41.15\%  & 72.35\% & 40.43\% & 40.54\% & 72.14\% \\
+                             &                                                   & Pathology  & \textbf{75.80\%}  & \textbf{74.58\%}  & \textbf{78.10\%} & \textbf{\color{darkgreen}{75.16\%}} & \textbf{\color{darkgreen}{73.98\%}} & \textbf{\color{darkgreen}{78.61\%}} \\
+                             &                                                   & Malignancy & 67.27\%  & 67.02\%  & 69.52\% & 69.41\% & 69.14\% & 70.43\% \\
+\midrule
+\multirow{5}{*}{3 - PART II} & \multirow{5}{*}{CBIS-DDSM, CDD-CESM, VIDA, VINDR} & Margin     & \textbf{43.08\%}  & \textbf{42.06\%}  & 72.41\% & \textbf{\color{darkgreen}{45.01\%}} & \textbf{\color{darkgreen}{44.02\%}} & \textbf{\color{darkgreen}{72.71\%}} \\
+                             &                                                   & Shape      & \textbf{41.62\%}  & 44.63\%  & 68.75\% & \textbf{\color{darkgreen}{44.01\%}} & \textbf{\color{darkgreen}{47.35\%}} & \textbf{\color{darkgreen}{69.02\%}} \\
+                             &                                                   & BI-RADS    & \textbf{50.58\%}  & \textbf{52.65\%}  & 78.41\% & \textbf{\color{darkgreen}{51.71\%}} & \textbf{\color{darkgreen}{53.56\%}} & 76.90\% \\
+                             &                                                   & Pathology  & 73.04\%  & 71.41\%  & 77.16\% & 73.79\% & 72.31\% & 77.68\% \\
+                             &                                                   & Malignancy & \textbf{73.00\%}  & \textbf{72.31\%}  & \textbf{78.54\%} & \textbf{\color{darkgreen}{74.30\%}} & \textbf{\color{darkgreen}{73.68\%}} & \textbf{\color{darkgreen}{79.58\%}} \\
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
-
+\
+\section{Test Time Augmentation}
+Overall results with TTA improved and the final pipeline for Augmentation in inference is like follow:
+\begin{lstlisting}[language=Python, caption=Training Command based on Original Scripts]
+from torchvision import transforms as T
+import torchvision.transforms.functional as F
+tta_transforms = [
+    T.Lambda(lambda x: x),
+    T.Lambda(lambda x: F.hflip(x)),
+    T.Lambda(lambda x: F.vflip(x)),
+    T.Lambda(lambda x: F.vflip(F.hflip(x))),
+    T.Lambda(lambda x: F.rotate(x, 90)),
+    T.Lambda(lambda x: F.rotate(x, 270)),
+]
+tta_weights = [
+    2.0, # original
+    1.5, # hflip
+    1.5, # vflip
+    1.0, # both flips
+    0.8, # 90 degree rotation
+    0.8, # 270 degree rotation
+]
+\end{lstlisting}
 \end{document}

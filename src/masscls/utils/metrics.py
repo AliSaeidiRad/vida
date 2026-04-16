@@ -61,28 +61,38 @@ def compute_all_class_weights(
 
 def save_checkpoint(
     model: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler.LRScheduler,
-    epoch: int,
-    metrics: Dict,
-    filepath: Path,
+    filepath: Union[str, Path],
+    optimizer: Optional[torch.optim.Optimizer] = None,
+    scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None,
+    epoch: Optional[int] = None,
+    metrics: Optional[Dict] = None,
 ):
     """Save model checkpoint"""
     checkpoint = {
         "epoch": epoch,
         "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict(),
-        "metrics": {
-            # Convert to serializable format
-            head: {
-                "accuracy": m["accuracy"],
-                "weighted_f1": m["weighted_f1"],
-                "roc_auc": m.get("roc_auc", 0.0),
-            }
-            for head, m in metrics.items()
-        },
+        "optimizer_state_dict": (
+            optimizer.state_dict() if optimizer is not None else None
+        ),
+        "scheduler_state_dict": (
+            scheduler.state_dict() if scheduler is not None else None
+        ),
     }
+
+    if metrics is not None:
+        checkpoint.update(
+            {
+                "metrics": {
+                    # Convert to serializable format
+                    head: {
+                        "accuracy": m["accuracy"],
+                        "weighted_f1": m["weighted_f1"],
+                        "roc_auc": m.get("roc_auc", 0.0),
+                    }
+                    for head, m in metrics.items()
+                }
+            }
+        )
 
     torch.save(checkpoint, filepath)
 

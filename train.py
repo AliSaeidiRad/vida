@@ -262,22 +262,22 @@ def train(
             best_val_loss = val_loss
             save_checkpoint(
                 model,
-                optimizer,
-                scheduler,
-                epoch,
-                val_metrics,
                 OUTPUT_DIR / f"best_loss.pth",
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epoch=epoch,
+                metrics=val_metrics,
             )
 
         if avg_f1 > best_val_f1:
             best_val_f1 = avg_f1
             save_checkpoint(
                 model,
-                optimizer,
-                scheduler,
-                epoch,
-                val_metrics,
                 OUTPUT_DIR / f"best_f1.pth",
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epoch=epoch,
+                metrics=val_metrics,
             )
 
         if (epoch + 1) % 50 == 0:
@@ -302,11 +302,11 @@ def train(
 
     save_checkpoint(
         model,
-        optimizer,
-        scheduler,
-        epoch,
-        val_metrics,
         OUTPUT_DIR / f"final_model.pth",
+        optimizer=optimizer,
+        scheduler=scheduler,
+        epoch=epoch,
+        metrics=val_metrics,
     )
 
     history_path = OUTPUT_DIR / f"training_history.json"
@@ -490,12 +490,15 @@ def main(
                     A.Resize(224, 224, interpolation=cv2.INTER_CUBIC),
                     A.HorizontalFlip(p=0.5),
                     A.VerticalFlip(p=0.5),
-                    A.ShiftScaleRotate(
-                        shift_limit=0.08,
-                        scale_limit=0.08,
-                        rotate_limit=10,
+                    A.Affine(
+                        scale=(1 - 0.08, 1 + 0.08),
+                        translate_percent={"x": (-0.08, 0.08), "y": (-0.08, 0.08)},
+                        rotate=(-10, 10),
+                        shear=(0, 0),
                         interpolation=cv2.INTER_CUBIC,
                         border_mode=cv2.BORDER_CONSTANT,
+                        fit_output=False,
+                        keep_ratio=True,
                         p=0.3,
                     ),
                     A.RandomBrightnessContrast(

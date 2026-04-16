@@ -13,8 +13,9 @@ import pandas as pd
 from tqdm import tqdm
 import torch.nn as nn
 import albumentations as A
-from torchvision import transforms as T
 from torch.utils.data import DataLoader
+from torchvision import transforms as T
+import torchvision.transforms.functional as F
 
 sys.path.append("/run/media/adminteam/kde/vida/src")
 
@@ -41,7 +42,8 @@ BASE_DIR = Path(__file__).resolve().parent
 VALID_ON = [
     "cbis",
     "cdd-cesm",
-    # "vida",
+    "vida",
+    "vindr",
 ]
 
 
@@ -81,26 +83,6 @@ def basic_validation(
             all_preds[head_name].append(preds.cpu().numpy())
             all_targets[head_name].append(targets.cpu().numpy())
 
-        # if "birads" in outputs and "pathology" not in outputs:
-        #     probs = torch.softmax(outputs["cls"], dim=1)
-        #     probs = torch.stack(
-        #         [
-        #             probs[:, [0, 3, 4]].sum(dim=1),
-        #             probs[:, [1, 2]].sum(dim=1),
-        #         ],
-        #         dim=1,
-        #     )
-        #     preds = torch.argmax(probs, dim=1)
-
-        #     mapping = torch.tensor([0, 1, 1, 0, 0]).to(targets.device)
-        #     targets = torch.argmax(inputs["pathology"], dim=1)
-        #     targets = mapping[targets]
-
-        #     all_probs["pathology"].append(probs.cpu().numpy())
-        #     all_preds["pathology"].append(preds.cpu().numpy())
-        #     all_targets["pathology"].append(targets.cpu().numpy())
-
-    # Compute metrics
     metrics = compute_comprehensive_metrics(
         all_targets,
         all_preds,
@@ -156,25 +138,6 @@ def tta_validation(
             all_preds[head_name].append(preds.cpu().numpy())
             all_targets[head_name].append(targets.cpu().numpy())
 
-        # if "birads" in aggregated and "pathology" not in aggregated:
-        #     probs = torch.softmax(aggregated["cls"], dim=1)
-        #     probs = torch.stack(
-        #         [
-        #             probs[:, [0, 3, 4]].sum(dim=1),
-        #             probs[:, [1, 2]].sum(dim=1),
-        #         ],
-        #         dim=1,
-        #     )
-        #     preds = torch.argmax(probs, dim=1)
-
-        #     mapping = torch.tensor([0, 1, 1, 0, 0]).to(targets.device)
-        #     targets = torch.argmax(inputs["pathology"], dim=1)
-        #     targets = mapping[targets]
-
-        #     all_probs["pathology"].append(probs.cpu().numpy())
-        #     all_preds["pathology"].append(preds.cpu().numpy())
-        #     all_targets["pathology"].append(targets.cpu().numpy())
-
     metrics = compute_comprehensive_metrics(
         all_targets,
         all_preds,
@@ -198,11 +161,6 @@ def export_metrics():
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         class_names = config["LABEL2ID"]
-        head_names = list(class_names.keys())
-        head_classes = [len(class_names[name]) for name in head_names]
-
-        if "pathology" not in class_names:
-            class_names.update({"pathology": {"MALIGNANT": 0, "BENIGN": 1}})
 
         model_config = MultiHeadCNNConfig.from_dict(config["MODELCONFIG"])
         model = MultiHeadCNNForClassification(model_config)
@@ -212,6 +170,43 @@ def export_metrics():
             Path(config["OUTPUT_DIR"]) / "best_f1.pth",
             model=model,
         )
+
+        previous_head_dict = {}
+        if config["FREEZE_HEADS"]:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            for h in config["FREEZE_HEADS"]:
+                previous_head_dict.update(
+                    {k: v for k, v in state_dict.items() if k.startswith(f"heads.{h}.")}
+                )
+                print(
+                    f"for head `{h}`, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+                )
+
+        if config["FREEZE_ATTENTION"]:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            previous_head_dict.update(
+                {k: v for k, v in state_dict.items() if k.startswith(f"attention.")}
+            )
+            print(
+                f"for attention, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+            )
+
+        if config["FREEZE_BACKBONE"] and config["CHECKPOINT"] is not None:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            previous_head_dict.update(
+                {k: v for k, v in state_dict.items() if k.startswith(f"backbone.")}
+            )
+            print(
+                f"for backbone, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+            )
+
+        print(f"`{len(previous_head_dict)}` weights need to be updated in total.")
+        model_dict = model.state_dict()
+        model_dict.update(previous_head_dict)
+        model.load_state_dict(model_dict)
 
         all_datasets = json.load(open("config/datasets.json", "r"))
         df_test = prepare_dataset(
@@ -259,9 +254,12 @@ def to_csv(filename: str = "summary-test.json", outputname: str = "results.csv")
     df = {
         "Experiment": [],
         "Train Datasets": [],
+        "Valid Datasets": [],
         "Frozen Heads": [],
         "Head": [],
         "Checkpoint": [],
+        "Backbone frozen": [],
+        "Attention frozen": [],
         "F1 Score": [],
         "Accuracy": [],
         "ROC-AUC": [],
@@ -287,8 +285,11 @@ def to_csv(filename: str = "summary-test.json", outputname: str = "results.csv")
                     "+".join(list(config.get("FREEZE_HEADS", [])))
                 )
                 df["Checkpoint"].append(
-                    False if config.get("CHECKPOINT", None) is not None else True
+                    False if config.get("CHECKPOINT", None) is None else True
                 )
+                df["Valid Datasets"].append("+".join(list(VALID_ON)))
+                df["Attention frozen"].append(config["FREEZE_ATTENTION"])
+                df["Backbone frozen"].append(config["FREEZE_BACKBONE"])
             else:
                 df["Head"].append(head)
                 df["F1 Score"].append(None)
@@ -300,8 +301,11 @@ def to_csv(filename: str = "summary-test.json", outputname: str = "results.csv")
                     "+".join(list(config.get("FREEZE_HEADS", [])))
                 )
                 df["Checkpoint"].append(
-                    False if config.get("CHECKPOINT", "None") == "None" else True
+                    False if config.get("CHECKPOINT", None) is None else True
                 )
+                df["Valid Datasets"].append("+".join(list(VALID_ON)))
+                df["Attention frozen"].append(config["FREEZE_ATTENTION"])
+                df["Backbone frozen"].append(config["FREEZE_BACKBONE"])
 
     pd.DataFrame(df).to_csv(outputname)
 
@@ -320,9 +324,6 @@ def export_tta_metrics():
 
         class_names = config["LABEL2ID"]
 
-        if "pathology" not in class_names:
-            class_names.update({"pathology": {"MALIGNANT": 0, "BENIGN": 1}})
-
         model_config = MultiHeadCNNConfig.from_dict(config["MODELCONFIG"])
         model = MultiHeadCNNForClassification(model_config)
         model.to(device)
@@ -330,6 +331,43 @@ def export_tta_metrics():
             Path(config["OUTPUT_DIR"]) / "best_f1.pth",
             model=model,
         )
+
+        previous_head_dict = {}
+        if config["FREEZE_HEADS"]:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            for h in config["FREEZE_HEADS"]:
+                previous_head_dict.update(
+                    {k: v for k, v in state_dict.items() if k.startswith(f"heads.{h}.")}
+                )
+                print(
+                    f"for head `{h}`, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+                )
+
+        if config["FREEZE_ATTENTION"]:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            previous_head_dict.update(
+                {k: v for k, v in state_dict.items() if k.startswith(f"attention.")}
+            )
+            print(
+                f"for attention, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+            )
+
+        if config["FREEZE_BACKBONE"] and config["CHECKPOINT"] is not None:
+            path = config["CHECKPOINT"]
+            state_dict = torch.load(path, map_location="cpu")["model_state_dict"]
+            previous_head_dict.update(
+                {k: v for k, v in state_dict.items() if k.startswith(f"backbone.")}
+            )
+            print(
+                f"for backbone, weights loaded from `{path}`. (`{len(previous_head_dict)}` need to be updated)"
+            )
+
+        print(f"`{len(previous_head_dict)}` weights need to be updated in total.")
+        model_dict = model.state_dict()
+        model_dict.update(previous_head_dict)
+        model.load_state_dict(model_dict)
 
         all_datasets = json.load(open("config/datasets.json", "r"))
         df_test = prepare_dataset(
@@ -358,21 +396,20 @@ def export_tta_metrics():
         )
 
         tta_transforms = [
-            T.Compose(
-                [
-                    T.Lambda(lambda x: x),
-                ]
-            ),
-            T.Compose(
-                [
-                    T.RandomVerticalFlip(p=1.0),
-                ]
-            ),
-            T.Compose(
-                [
-                    T.RandomHorizontalFlip(p=1.0),
-                ]
-            ),
+            T.Lambda(lambda x: x),
+            T.Lambda(lambda x: F.hflip(x)),
+            T.Lambda(lambda x: F.vflip(x)),
+            T.Lambda(lambda x: F.vflip(F.hflip(x))),
+            T.Lambda(lambda x: F.rotate(x, 90)),
+            T.Lambda(lambda x: F.rotate(x, 270)),
+        ]
+        tta_weights = [
+            2.0,  # original — highest trust
+            1.5,  # hflip — very natural for mammograms
+            1.5,  # vflip
+            1.0,  # both flips
+            0.8,  # 90°
+            0.8,  # 270°
         ]
         setattr(model, "tta_transform", tta_transforms)
         test_metrics, test_targets, test_probs = tta_validation(
@@ -382,7 +419,7 @@ def export_tta_metrics():
             -1,
             config["AMP"],
             class_names,
-            weights=[2, 1, 1],
+            weights=tta_weights,
         )
 
         print_metrics_summary(
@@ -393,8 +430,8 @@ def export_tta_metrics():
 
 
 if __name__ == "__main__":
-    export_metrics()
-    to_csv()
+    # export_metrics()
+    # to_csv()
 
     export_tta_metrics()
     to_csv("summary-test-tta.json", "results-tta.csv")
